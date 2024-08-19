@@ -1,0 +1,14 @@
+@Library('jenkins-jcasc-pipeline') _
+
+MultiPipeline {
+
+  // Application
+  applicationType = "java"
+  applicationBuildPath = "./example/jenkins-jcasc-maven-example"
+  // Maven
+  mvnUnitTestGoals = "clean test"
+  mvnUnitTestArgs = "--quiet"
+  mvnBuildGoals= "clean install"
+  mvnBuildArgs = "--quiet"
+  
+}

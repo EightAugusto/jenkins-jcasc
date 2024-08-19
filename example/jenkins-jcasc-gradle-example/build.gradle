@@ -1,0 +1,127 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+plugins {
+    id "java"
+    id "jacoco"
+    id "checkstyle"
+    id "org.springframework.boot" version "3.3.3"
+    id "io.spring.dependency-management" version "1.1.6"
+}
+
+group = "com.eightaugusto"
+version = "1.0.0"
+
+ext {
+    jacocoVersion = "0.8.12"
+    jacocoPath = "coverage-reports/jacoco"
+    puppycrawlCheckstyleVersion = "10.17.0"
+
+    springdocOpenapiVersion = "2.6.0"
+    mapstructVersion = "1.6.0"
+    springCloudDependenciesVersion = "2023.0.3"
+}
+
+// Disable the plain jar
+jar { enabled = false }
+
+// Rename the plain jar to a consistent jar file (without version)
+bootJar { archiveFileName = "${project.name}.jar" }
+
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+
+repositories { mavenCentral() }
+
+configurations {
+    configureEach { exclude group: "org.springframework.boot", module: "spring-boot-starter-logging" }
+}
+
+dependencies {
+    checkstyle("com.puppycrawl.tools:checkstyle:${puppycrawlCheckstyleVersion}")
+
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.cloud:spring-cloud-starter-config")
+    implementation("org.springframework.cloud:spring-cloud-starter-bootstrap")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-log4j2")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+
+    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocOpenapiVersion}")
+
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+    compileOnly("org.mapstruct:mapstruct:${mapstructVersion}")
+    annotationProcessor("org.mapstruct:mapstruct-processor:${mapstructVersion}")
+
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+dependencyManagement {
+    imports { mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudDependenciesVersion}" }
+}
+
+// Use Google Checkstyle and fail if any error, warning or failure
+checkstyle {
+    maxErrors = 0
+    maxWarnings = 0
+    ignoreFailures = false
+    toolVersion = puppycrawlCheckstyleVersion
+    config = resources.text.fromArchiveEntry(
+            configurations.checkstyle.find { it.name.contains("checkstyle") }, "google_checks.xml"
+    )
+}
+
+// Process the resources and replace variables with the pattern: "@<variable>@"
+processResources {
+    filter ReplaceTokens, tokens: [
+            "project.artifactId": project.name, "project.version": project.version, "project.groupId": project.group
+    ]
+}
+
+test {
+    maxParallelForks 2
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+jacoco {
+    toolVersion = jacocoVersion
+    reportsDirectory = layout.buildDirectory.dir("coverage-reports/jacoco")
+}
+
+// Define a reusable function which provides a list of excluded classes for jacoco report and coverage verification
+ext.jacocoClassDirectories = { classDirectories ->
+    return files(classDirectories.files.collect {
+        fileTree(dir: it,
+                exclude: ["**/ApplicationResponseEntityExceptionHandler.class",
+                          "**/*Configuration.class",
+                          "**/Application.class",
+                          "**/*Controller.class",
+                          "**/*Config.class",
+                          "**/*_.class"
+                ]
+        )
+    })
+}
+
+jacocoTestReport {
+    dependsOn test
+    afterEvaluate { classDirectories = jacocoClassDirectories(classDirectories) }
+    reports {
+        xml.required = true
+        xml.outputLocation = layout.buildDirectory.file("${jacocoPath}/jacoco.xml")
+        csv.required = true
+        csv.outputLocation = layout.buildDirectory.file("${jacocoPath}/jacoco.csv")
+        html.required = true
+        html.outputLocation = layout.buildDirectory.dir(jacocoPath)
+    }
+}
+
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    afterEvaluate { classDirectories = jacocoClassDirectories(classDirectories) }
+    violationRules { rule { limit { minimum = 0.9 } } }
+}
+
+check { dependsOn jacocoTestCoverageVerification }

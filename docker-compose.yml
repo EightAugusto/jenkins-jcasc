@@ -1,0 +1,51 @@
+services:
+  jenkins-jcasc:
+    image: ${DOCKER_JENKINS_MASTER_IMAGE_TAG}
+    hostname: ${JENKINS_ID}
+    container_name: ${JENKINS_ID}
+    restart: always
+    volumes:
+      - ./jenkins/jenkins_home:/var/jenkins_home
+      - ./jenkins/casc.yaml:/var/jenkins_home/casc.yaml
+      # Mount docker.sock from host machine for Docker slaves
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      # Jenkins UI
+      - 8080:8080
+    healthcheck:
+      test: curl --fail http://localhost:8080/login || exit 1
+      interval: 5s
+      retries: 3
+      timeout: 30s
+    environment:
+      # Jenkins configuration
+      - JENKINS_ID=${JENKINS_ID}
+      - JENKINS_HOST=${JENKINS_HOST}
+      # Jenkins credentials
+      - JENKINS_ADMIN_ID=${JENKINS_ADMIN_ID}
+      - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD}
+      # Jenkins JCasC
+      - CASC_JENKINS_CONFIG=${CASC_JENKINS_CONFIG}
+      # Git credentials
+      - GIT_CREDENTIALS_ID=${GIT_CREDENTIALS_ID}
+      - GIT_USER=${GIT_USER}
+      - GIT_TOKEN=${GIT_TOKEN}
+      # Jenkins shared library git repository
+      - GIT_JENKINS_SHARED_LIBRARY_NAME=${GIT_JENKINS_SHARED_LIBRARY_NAME}
+      - GIT_JENKINS_SHARED_LIBRARY_REPOSITORY=${GIT_JENKINS_SHARED_LIBRARY_REPOSITORY}
+      - GIT_JENKINS_SHARED_LIBRARY_REPOSITORY_BRANCH=${GIT_JENKINS_SHARED_LIBRARY_REPOSITORY_BRANCH}
+      - GIT_JENKINS_SHARED_LIBRARY_REPOSITORY_PATH=${GIT_JENKINS_SHARED_LIBRARY_REPOSITORY_PATH}
+      # Docker build
+      - DOCKER_REGISTRY=${DOCKER_REGISTRY}
+      - DOCKER_BUILD_ARCH=${DOCKER_BUILD_ARCH}
+      - DOCKER_CREDENTIALS_ID=${DOCKER_CREDENTIALS_ID}
+      - DOCKER_USER=${DOCKER_USER}
+      - DOCKER_PASSWORD=${DOCKER_PASSWORD}
+      - DOCKER_NETWORK=${DOCKER_NETWORK}
+      # Docker configuration
+      - DOCKER_JENKINS_SLAVE_IMAGE_TAG=${DOCKER_JENKINS_SLAVE_IMAGE_TAG}
+
+networks:
+  default:
+    external: true
+    name: ${DOCKER_NETWORK}

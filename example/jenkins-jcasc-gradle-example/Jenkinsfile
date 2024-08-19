@@ -1,0 +1,15 @@
+@Library('jenkins-jcasc-pipeline') _
+
+MultiPipeline {
+  
+  // Pipeline
+  applicationType = "java"
+  applicationBuildPath = "./example/jenkins-jcasc-gradle-example"
+  // Gradle
+  gradleCmd = "gradle"
+  gradleUnitTestGoals = "clean test"
+  gradleUnitTestArgs = null
+  gradleBuildGoals= "clean build"
+  gradleBuildArgs = null
+
+}

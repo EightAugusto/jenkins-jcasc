@@ -1,0 +1,124 @@
+credentials:
+  system:
+    domainCredentials:
+    - credentials:
+      - usernamePassword:
+          id: "${GIT_CREDENTIALS_ID}"
+          scope: GLOBAL
+          username: "${GIT_USER}"
+          password: "${GIT_TOKEN}"
+          description: "Git credentials"
+      - usernamePassword:
+          id: "${DOCKER_CREDENTIALS_ID}"
+          scope: GLOBAL
+          username: "${DOCKER_USER}"
+          password: "${DOCKER_PASSWORD}"
+          description: "Docker credentials"
+jenkins:
+  labelString: "${JENKINS_ID}"
+  mode: "EXCLUSIVE"
+  # Built-in for jenkins-master disabled
+  numExecutors: 0
+  securityRealm:
+    local:
+      allowsSignup: false
+      # Create a default user
+      users:
+        - id: "${JENKINS_ADMIN_ID}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    globalMatrix:
+      entries:
+      # Read access to all authenticated users
+      - group:
+          name: "authenticated"
+          permissions:
+          - "Overall/Read"
+      # Give admin access to the created user
+      - user:
+          name: "${JENKINS_ADMIN_ID}"
+          permissions:
+          - "Overall/Administer"
+  # Global Properties
+  globalNodeProperties:
+  - envVars:
+      env:
+      # Agent 
+      - key: "DOCKER_AGENT_LABEL"
+        value: "${JENKINS_ID}-docker"
+      # Docker
+      - key: "DOCKER_REGISTRY"
+        value: "${DOCKER_REGISTRY}"
+      - key: "DOCKER_BUILD_ARCH"
+        value: "${DOCKER_BUILD_ARCH}"
+      - key: "DOCKER_BUILD_GROUP"
+        value: ""
+      - key: "DOCKER_BUILD_DEFAULT_ARGS"
+        value: ""
+      # Maven
+      - key: "MVN_UNIT_TEST_DEFAULT_ARGS"
+        value: ""
+      - key: "MVN_BUILD_DEFAULT_ARGS"
+        value: ""
+      # Gradle
+      - key: "GRADLE_UNIT_TEST_DEFAULT_ARGS"
+        value: ""
+      - key: "GRADLE_BUILD_DEFAULT_ARGS"
+        value: ""     
+  # Docker
+  clouds:
+  - docker:
+      # Docker max containers limit
+      containerCap: 2
+      dockerApi:
+        connectTimeout: 60
+        # Connnect to the mounted docker.sock from host machine
+        dockerHost:
+          uri: "unix:///var/run/docker.sock"
+        readTimeout: 60
+      exposeDockerHost: true
+      name:  "${JENKINS_ID}-docker"
+      templates:
+      - connector: "attach"
+        name: "${JENKINS_ID}-docker"
+        labelString: "${JENKINS_ID}-docker"
+        dockerTemplateBase:
+          image: "${DOCKER_JENKINS_SLAVE_IMAGE_TAG}"
+          mounts:
+          # Mount docker.sock for DinD
+          - "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock"
+          network: ${DOCKER_NETWORK}
+        # Docker template max containers limit
+        instanceCapStr: "2"
+        remoteFs: "/home/jenkins"
+        removeVolumes: true
+        # Never pull the images since we are using local image
+        pullStrategy: "PULL_NEVER"
+        pullTimeout: 300
+
+unclassified:
+  location:
+    url: "${JENKINS_HOST}"
+  # Setup global libaries based on a repository using the provided credentials
+  globalLibraries:
+    libraries:
+    - allowVersionOverride: false
+      defaultVersion: "${GIT_JENKINS_SHARED_LIBRARY_REPOSITORY_BRANCH}"
+      implicit: true
+      name: "${GIT_JENKINS_SHARED_LIBRARY_NAME}"
+      retriever:
+        modernSCM:
+          libraryPath: "${GIT_JENKINS_SHARED_LIBRARY_REPOSITORY_PATH}"
+          scm:
+            github:
+              configuredByUrl: true
+              credentialsId: "${GIT_CREDENTIALS_ID}"
+              repositoryUrl: "${GIT_JENKINS_SHARED_LIBRARY_REPOSITORY}"
+              traits:
+              - gitHubBranchDiscovery:
+                  strategyId: 1
+              - gitHubPullRequestDiscovery:
+                  strategyId: 1
+              - gitHubForkDiscovery:
+                  strategyId: 1
+                  trust: "gitHubTrustPermissions"
